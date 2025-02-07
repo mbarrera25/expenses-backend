@@ -25,24 +25,38 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
-
 router.post('/', async (req, res) => {
   try {
-    const { name, description, date, amount, category, paymentMethod } = req.body;
+    const { id, name, description, date, amount, category, paymentMethod } = req.body;
 
     // Validar datos requeridos
     if (!name || !description || !date || !amount || !category || !paymentMethod) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
 
-    // Crear el gasto
-    const expense = await Expense.create({ name, description, date, amount, category, paymentMethod });
-    res.status(201).json(expense);
+    let expense;
+
+    if (id) {
+      // Intentar encontrar el gasto existente
+      expense = await Expense.findByPk(id);
+      if (!expense) {
+        return res.status(404).json({ error: 'Gasto no encontrado' });
+      }
+
+      // Actualizar el gasto existente
+      await expense.update({ name, description, date, amount, category, paymentMethod });
+      res.status(200).json({ message: 'Gasto actualizado correctamente', expense });
+    } else {
+      // Crear un nuevo gasto
+      expense = await Expense.create({ name, description, date, amount, category, paymentMethod });
+      res.status(201).json({ message: 'Gasto creado correctamente', expense });
+    }
   } catch (error) {
-    console.error('Error al crear gasto:', error);
+    console.error('Error al procesar el gasto:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 
 router.delete('/:id', async (req, res) => {
   try {
