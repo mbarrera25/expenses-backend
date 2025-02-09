@@ -11,6 +11,7 @@ app.use(bodyParser.json());
 const url = '/api/'
 app.use( url + 'expenses', require('./routes/expenses'));
 app.use( url + 'transactions', require('./routes/transactions'));
+app.use( url + 'settings', require('./routes/settings'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
