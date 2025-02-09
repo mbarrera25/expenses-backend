@@ -10,6 +10,7 @@ app.use(bodyParser.json());
 
 const url = '/api/'
 app.use( url + 'expenses', require('./routes/expenses'));
+app.use( url + 'transactions', require('./routes/transactions'));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
