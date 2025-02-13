@@ -2,6 +2,10 @@ const express = require('express');
 const Expense = require('../models/Expense');
 const router = express.Router();
 const { Op } = require('sequelize');
+const Types = require('../models/Types');
+const Categories = require('../models/Categories');
+const Currency = require('../models/Currency');
+const PaymentMethods = require('../models/PaymentMethods');
 
 router.get('/', async (req, res) => {
   try {
@@ -20,16 +24,24 @@ router.get('/', async (req, res) => {
     m.setHours(0, 0, 0, 0); // Normalizar la fecha (eliminar horas, minutos, segundos y milisegundos)
     console.log('Fecha de inicio del mes actual', m);
 
-    const allItems = await Expense.findAll({
+    let allItems = await Expense.findAll({
       where: {
         date: {
           [Op.gt]: m, //Fecha de inicio del mes actual
         }
-      }
+      },
+      
     });
 
-    allItems.map((item) => {
+    allItems = allItems.map((item) => {
       console.log(item.date, item.amount);
+      return {
+        ...item,
+        currency: item.transactionCurrency,
+        type: item.transactionType,
+        category: item.transactionCategory,
+        paymentMethod: item.transactionPaymenMethod
+      }
     });
 
     const totalBudgeted = allItems.filter(item => {
@@ -88,8 +100,7 @@ router.post('/', async (req, res) => {
       }
 
       // Actualizar el gasto existente
-      await expense.update({ name, description, date, amount, category_id: category.id,
-         payment_method_id: paymentMethod.id, type_id: type, currency_id: currency.id});
+      await expense.update({ name, description, date, amount, category, paymentMethod });
       res.status(200).json({ message: 'Gasto actualizado correctamente', expense });
     } else {
       // Crear un nuevo gasto

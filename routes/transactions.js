@@ -6,7 +6,9 @@ const transactionService = new TransactionService();
 
 const Transaction = require("../models/Transaction");
 const Types = require('../models/Types')
-const Currency = require('../models/Currency')
+const Currency = require('../models/Currency');
+const Categories = require('../models/Categories');
+const PaymentMethods = require('../models/PaymentMethods');
 
 
 router.get('/', async (req, res) => {
@@ -15,19 +17,44 @@ router.get('/', async (req, res) => {
         const limit = parseInt(req.query.pageSize) || 10;
         const offset = (page - 1) * limit;
 
-        const { count, rows: transactions } = await Transaction.findAndCountAll({
+        let { count, rows: transactions } = await Transaction.findAndCountAll({
             limit,
             offset,
             order: [['date', 'DESC']],
-            include: [
+            include:[
                 {
-                    model: Types,
-                    as: 'transactionType',
-                    attributes: ['id', 'name'],
+                  model:Types,
+                  as: 'transactionType',
+                  attributes:['id','name']
                 },
-            ],
+                {
+                  model: Categories,
+                  as: 'transactionCategory',
+                  attributes:['id','name']
+                },
+                {
+                  model: Currency,
+                  as: 'transactionCurrency',
+                  attributes:['id','name']
+                },
+                {
+                  model: PaymentMethods,
+                  as: 'transactionPaymenMethod',
+                  attributes:['id','name']
+                }
+              ]
         });
 
+        transactions = transactions.map(t => {
+            return {
+                ...t.toJSON(),
+                currency: t.transactionCurrency,
+                type: t.transactionType,
+                category: t.transactionCategory,
+                payment_method: t.transactionPaymenMethod
+            };
+        });
+        
         res.json({
             totalItems: count,
             totalPages: Math.ceil(count / limit),
