@@ -1,15 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const  Types  = require('../models/Types');
+const Types = require('../models/Types');
 const Categories = require('../models/Categories');
 const PaymentMethods = require('../models/PaymentMethods');
-const Currency = require('../models/Currency'); 
-
+const Currency = require('../models/Currency');
+const UtilService = require('../services/utils.service')
+const utilsService = new UtilService()
 router.get('/', async (req, res) => {
     try {
         const types = await Types.findAll();
-        const categories = await Categories.findAll();
-        const paymentMethods = await PaymentMethods.findAll();
+        const categories = utilsService.renameKeyInResults(await Categories.findAll({
+            include: [
+                {
+                    model: Types,
+                    as: 'CategoryTypes',
+                    attributes: ['id', 'name']
+                }
+            ]
+        }),'CategoryTypes','type');
+        const paymentMethods = utilsService.renameKeyInResults(await PaymentMethods.findAll({
+            include: [
+                {
+                    model: Currency,
+                    as: 'PaymentMethodCurrency',
+                    attributes: ['id', 'name', 'code', 'symbol']
+                }
+            ]
+        }), 'PaymentMethodCurrency', 'currency');
         const currency = await Currency.findAll();
         res.json({
             types,
@@ -25,11 +42,11 @@ router.get('/', async (req, res) => {
 
 router.post('/types', async (req, res) => {
     try {
-        const { name } = req.body;
-        if (!name) {
+        const { name, operation, description } = req.body;
+        if (!name || !operation || !description) {
             return res.status(400).json({ error: 'Name is required' });
         }
-        const type = await Types.create({ name });
+        const type = await Types.create({ name, operation, description });
         res.status(201).json(type);
     } catch (error) {
         console.error(error);
@@ -39,13 +56,14 @@ router.post('/types', async (req, res) => {
 
 router.post('/categories', async (req, res) => {
     try {
-        const { name, type } = req.body;
+        let { name, type } = req.body;
         console.log(req.body);
-        
+
         if (!name, !type) {
             return res.status(400).json({ error: 'all arguments is required' });
         }
-        const category = await Categories.create({ name, type });
+
+        const category = await Categories.create({ name, type_id: type.id });
         res.status(201).json(category);
     } catch (error) {
         console.error(error);
@@ -55,11 +73,11 @@ router.post('/categories', async (req, res) => {
 
 router.post('/payment-methods', async (req, res) => {
     try {
-        const { name, currency } = req.body;
+        let { name, currency } = req.body;
         if (!name || !currency) {
             return res.status(400).json({ error: 'Name is required' });
-        }
-        const paymentMethod = await PaymentMethods.create({ name, currency });
+        }        
+        const paymentMethod = await PaymentMethods.create({ name, currency_id: currency.id });
         res.status(201).json(paymentMethod);
     } catch (error) {
         console.error(error);
@@ -101,7 +119,7 @@ router.put('/categories/:id', async (req, res) => {
         if (!category) {
             return res.status(404).json({ message: 'Category not found' });
         }
-        await category.update(req.body);
+        await category.update({...req.body, type_id: req.body.type.id});
         res.json(category);
     } catch (error) {
         console.error(error);
@@ -115,7 +133,7 @@ router.put('/payment-methods/:id', async (req, res) => {
         if (!paymentMethod) {
             return res.status(404).json({ message: 'Payment method not found' });
         }
-        await paymentMethod.update(req.body);
+        await paymentMethod.update({...req.body, currency_id: req.body.currency.id});
         res.json(paymentMethod);
     } catch (error) {
         console.error(error);

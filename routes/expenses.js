@@ -16,10 +16,10 @@ router.get('/', async (req, res) => {
     });
 
     const MonthCurrent = new Date().getMonth();
-    const m =new Date(Date.UTC(new Date().getFullYear(), MonthCurrent, 1)); // Fecha de inicio del mes actual
-    m.setHours(0,0,0,0); // Normalizar la fecha (eliminar horas, minutos, segundos y milisegundos)
+    const m = new Date(Date.UTC(new Date().getFullYear(), MonthCurrent, 1)); // Fecha de inicio del mes actual
+    m.setHours(0, 0, 0, 0); // Normalizar la fecha (eliminar horas, minutos, segundos y milisegundos)
     console.log('Fecha de inicio del mes actual', m);
-    
+
     const allItems = await Expense.findAll({
       where: {
         date: {
@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
     });
 
     allItems.map((item) => {
-      console.log(item.date,item.amount);
+      console.log(item.date, item.amount);
     });
 
     const totalBudgeted = allItems.filter(item => {
@@ -41,20 +41,20 @@ router.get('/', async (req, res) => {
     }).reduce((acc, item) => acc + item.amount, 0);
 
 
-    const totalToday= allItems.filter(item => {
+    const totalToday = allItems.filter(item => {
       const today = new Date(); // Fecha actual
       today.setHours(0, 0, 0, 0); // Normalizar la fecha (eliminar horas, minutos, segundos y milisegundos)
       const date = new Date(item.date)
       date.setHours(0, 0, 0, 0)
       console.log(date.toISOString().split('T')[0], today.toISOString().split('T')[0])
       console.log(date.toISOString().split('T')[0] === today.toISOString().split('T')[0]);
-      
-         
+
+
       return date.toISOString().split('T')[0] === today.toISOString().split('T')[0];
     }).reduce((acc, item) => acc + item.amount, 0);
 
     console.log('TotalToday', totalToday);
-    
+
     res.json({
       totalItems: count,
       totalPages: Math.ceil(count / limit),
@@ -71,10 +71,10 @@ router.get('/', async (req, res) => {
 });
 router.post('/', async (req, res) => {
   try {
-    const { id, name, description, date, amount, category, paymentMethod } = req.body;
+    const { id, name, description, date, amount, category, paymentMethod, type, currency } = req.body;
 
     // Validar datos requeridos
-    if (!name || !description || !date || !amount || !category || !paymentMethod) {
+    if (!name || !description || !date || !amount || !category || !paymentMethod || type || currency ) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
 
@@ -88,11 +88,13 @@ router.post('/', async (req, res) => {
       }
 
       // Actualizar el gasto existente
-      await expense.update({ name, description, date, amount, category, paymentMethod });
+      await expense.update({ name, description, date, amount, category_id: category.id,
+         payment_method_id: paymentMethod.id, type_id: type, currency_id: currency.id});
       res.status(200).json({ message: 'Gasto actualizado correctamente', expense });
     } else {
       // Crear un nuevo gasto
-      expense = await Expense.create({ name, description, date, amount, category, paymentMethod });
+      expense = await Expense.create({ name, description, date, amount, 
+        category_id: category.id, payment_method_id: paymentMethod.id, type_id: type, currency_id: currency.id  });
       res.status(201).json({ message: 'Gasto creado correctamente', expense });
     }
   } catch (error) {

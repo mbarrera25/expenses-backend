@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const { Op, Sequelize, where } = require('sequelize');
+const TransactionService = require('../services/TransactionService');
+const transactionService = new TransactionService();
 
 const Transaction = require("../models/Transaction");
+const Types = require('../models/Types')
+const Currency = require('../models/Currency')
 
 
 router.get('/', async (req, res) => {
@@ -14,6 +19,13 @@ router.get('/', async (req, res) => {
             limit,
             offset,
             order: [['date', 'DESC']],
+            include: [
+                {
+                    model: Types,
+                    as: 'transactionType',
+                    attributes: ['id', 'name'],
+                },
+            ],
         });
 
         res.json({
@@ -22,6 +34,64 @@ router.get('/', async (req, res) => {
             page,
             items: transactions,
         });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+router.get('/summary', async (req, res) => {
+    try {
+        const now = new Date(); // Fecha actual
+        const year = now.getFullYear(); // Año actual
+        const month = now.getMonth(); // Mes actual (0 = enero, 1 = febrero, ..., 11 = diciembre)
+
+        // Primer día del mes actual
+        const firstDayOfMonth = new Date(Date.UTC(year, month, 1));
+        firstDayOfMonth.setUTCHours(0, 0, 0, 0); // Asegurar que sea a las 00:00:00 en UTC
+
+        // Último día del mes actual
+        const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
+        lastDayOfMonth.setUTCHours(23, 59, 59, 999); // Asegurar que sea a las 23:59:59.999 en UTC
+        console.log(firstDayOfMonth, lastDayOfMonth);
+
+        const { Op } = require('sequelize');
+
+        let summary = await Transaction.findAll({
+            attributes: [
+                [Sequelize.fn('SUM', Sequelize.col('amount')), 'amount'],
+                [Sequelize.col('transactionCurrency.symbol'),'currency'],
+                [Sequelize.col('transactionType.name'), 'typeName']
+            ],
+            where: {
+                date: {
+                    [Op.between]: [firstDayOfMonth, lastDayOfMonth]
+                }
+            },
+            include: [
+                {
+                    model: Types,  // Asegúrate de que `Type` es el modelo correcto
+                    as: 'transactionType',   // Debe coincidir con el alias definido en la relación
+                    attributes: []
+                },
+                {
+                    model: Currency,  // Asegúrate de que `Type` es el modelo correcto
+                    as: 'transactionCurrency',   // Debe coincidir con el alias definido en la relación
+                    attributes: []
+                }
+            ],
+            group: ['transactionCurrency.symbol', 'transactionType.name']
+        });
+
+        const balance = await transactionService.getBalancePorMoneda();
+        console.log(balance);
+        console.log(summary);
+
+
+        const summary_general = {
+            summary,
+            balance
+        }
+        res.json(summary_general);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Internal server error' });
@@ -43,10 +113,10 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { id, name, description, date, amount, category, payment_method, type_transaction, currency } = req.body;
+        let { id, name, description, date, amount, category, payment_method, type, currency } = req.body;
 
         // Validar datos requeridos
-        if (!name || !description || !date || !amount || !category || !payment_method || !type_transaction || !currency) {
+        if (!name || !description || !date || !amount || !category || !payment_method || !type || !currency) {
             return res.status(400).json({ error: 'Todos los campos son obligatorios' });
         }
 
@@ -60,12 +130,20 @@ router.post('/', async (req, res) => {
             }
 
             // Actualizar el transaction existente
-            await Transaction.update({ name, description, date, amount, category, payment_method, type_transaction, currency });
-            res.status(200).json({ message: 'transaction actualizado correctamente', expense });
+            category = category.id
+            currency = currency.id
+            type = type.id
+            payment_method = payment_method.id
+            await Transaction.update({ name, description, date, amount, category_id: category.id,
+                payment_method_id: payment_method.id, type_id: type, currency_id: currency.id },
+                { where: { id } }
+            );
+            res.status(200).json({ message: 'transaction actualizado correctamente' });
         } else {
             // Crear un nuevo transaction
 
-            transaction = await Transaction.create({ name, description, date, amount, category, payment_method, type_transaction, currency });
+            transaction = await Transaction.create({ name, description, date, amount, category_id: category.id,
+                payment_method_id: payment_method.id, type_id: type.id, currency_id: currency.id });
             res.status(201).json({ message: 'transaction creado correctamente', transaction });
         }
     } catch (error) {
@@ -101,5 +179,6 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ message: 'Internal server error' });
     }
 });
+
 
 module.exports = router;
