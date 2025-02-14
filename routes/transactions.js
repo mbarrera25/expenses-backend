@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
                 {
                   model: Currency,
                   as: 'transactionCurrency',
-                  attributes:['id','name']
+                  attributes:['id','name', 'symbol']
                 },
                 {
                   model: PaymentMethods,

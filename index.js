@@ -16,6 +16,7 @@ const url = '/api/'
 app.use( url + 'expenses', require('./routes/expenses'));
 app.use( url + 'transactions', require('./routes/transactions'));
 app.use( url + 'settings', require('./routes/settings'));
+app.use( url + 'exchange-rate', require('./routes/exchangeCurrency'));
 
 initDb().then(() => {
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

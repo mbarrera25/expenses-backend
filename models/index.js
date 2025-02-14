@@ -4,6 +4,7 @@ const Types = require("./Types")
 const Currency = require('./Currency')
 const Category = require('./Categories')
 const PaymentMethod = require('./PaymentMethods')
+const ExchangeCurrency = require('./Exchange_currency')
 // Sincronizar todos los modelos con la base de datos
 const initDb = async () => {
   try {
@@ -65,6 +66,16 @@ const initDb = async () => {
         foreignKey: 'currency_id',
         as: 'currenciesTransaction'
     });
+
+      ExchangeCurrency.belongsTo( Currency, {
+        foreignKey: 'currency_id',
+        as: 'exchangeCurrency'
+      })
+
+      Currency.hasMany( ExchangeCurrency, {
+        foreignKey: 'currency_id',
+        as: 'currencyExchange'
+      })
 
     await sequelize.authenticate();
     console.log("Connection has been established successfully.");
