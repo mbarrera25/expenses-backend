@@ -38,18 +38,25 @@ router.get('/', async (req, res) => {
     try {
       // Obtener parámetros de paginación de la solicitud (página y límite)
       const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 10;
+      const limit = parseInt(req.query.pageSize) || 5;
       const offset = (page - 1) * limit;
   
       // Obtener tasas de cambio ordenadas por fecha descendente
-      const exchangeRates = await ExchangeCurrency.findAll({
+      let {count, rows: items} = await ExchangeCurrency.findAndCountAll({
         order: [['date', 'DESC']],
         limit: limit,
         offset: offset,
-        include: Currency
+        include: 'exchangeCurrency'
       });
+
+      res.json({
+        totalItems: count,
+        totalPages: Math.ceil(count / limit),
+        page,
+        items,
+    }).status(200);
   
-      res.status(200).json(exchangeRates);
+      //res.status(200)
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -62,12 +69,12 @@ router.get('/', async (req, res) => {
       // Consulta la tasa de cambio para la fecha de hoy
       let todayRate = await ExchangeCurrency.findOne({
         where: { date: today },
-        include: Currency
+        include: 'exchangeCurrency'
       });
   
       if (!todayRate) {
         // Si no existe la tasa de cambio del día de hoy, intenta crearla
-        const currency = await Currency.findOne({ where: { iso: "USD" } });
+        const currency = await Currency.findOne({ where: { code: "USD" } });
         const rate = await getRateData();
   
         if (!rate) {
@@ -76,7 +83,8 @@ router.get('/', async (req, res) => {
             message: 'No se pudo obtener la tasa de cambio actual.'
           });
         }
-  
+        console.log(currency);
+        
         const newExchangeRate = {
           currency_id: currency.id,
           rate: rate,
